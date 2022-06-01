@@ -8,14 +8,14 @@ from werkzeug.utils import secure_filename
 import pandas as pd
 from datetime import datetime
 app=Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI']='sqlite://test.db'
+app.config['SQLALCHEMY_DATABASE_URI']='sqlite:////storage/emulated/0/utss/utss.db'
 app.config['MAIL_SERVER']='smtp.mailtrap.io'
 app.config['MAIL_PORT'] = 2525
 app.config['MAIL_USERNAME'] = 'blah'
 app.config['MAIL_PASSWORD'] = 'cfaf5b99f8bafb'
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USE_SSL'] = False
-app.config['SECRET_KEY']:'Development shit'
+app.secret_key='Development shit'
 
 cors = CORS(app, resources={r"/api/*": {"origins": "*"}})
 MAX_TRIES=20
@@ -51,8 +51,8 @@ class Users(db.Model):
 class Visitor(db.Model):
 		id=db.Column(db.Integer,primary_key=True)
 		ip=db.Column(db.String(100),unique=True)
-		date=db.Column(db.DateTime,nullable=False,default=datetime.utcnow)
-		def __init__(self,ip,date=datetime.utcnow):
+		date=db.Column(db.DateTime,nullable=False,default=datetime.now())
+		def __init__(self,ip,date=datetime.now()):
 			self.ip=ip
 			self.date=date
 class Subject(db.Model):
@@ -172,8 +172,8 @@ def register():
 @app.route('/api/visitor/add',methods=['POST'])
 def add_visitors():
 	ip=request.remote_addr
-	if(session['visited']):
-		v=Visitor(ip,date)
+	if(not session.get('visited')):
+		v=Visitor(ip)
 		session['visited']=True
 		db.session.add(v)
 		db.session.commit()
@@ -183,9 +183,13 @@ def get_visitors():
 	uid=session.get('uid')
 	is_admin=session.get('admin')
 	if(not is_admin):
-		return jsonify({'error':'Unauthorized'}),304	
-	count=len(Visitor.query.filter_by(date=datetime.utcnow).all())
-	return jsonify({'unique_visits_today':count})
+		return jsonify({'error':'Unauthorized'}),304
+	uid=session.get('uid')
+	is_admin=session.get('admin')
+	count=len(Visitor.query.all())
+	#if(not is_admin):
+		#return jsonify({'error':'Unauthorized'}),304	
+	return jsonify({'unique_visits':count})
 @app.route('/api/students/count',methods=['POST'])
 def count_students():
 	count=len(Users.query.filter_by(student=True).all())
@@ -267,4 +271,5 @@ def contact():
   db.session.commit()
   return jsonify({'success':1})
 if __name__=='__main__':
+	db.create_all()
 	app.run(debug=True)
